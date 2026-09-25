@@ -1,0 +1,13 @@
+Salidas generadas por la skill
+resumen.csv
+mi-resumen.csv
+*-resumen.csv
+
+Cache de Python
+__pycache__/
+*.pyc
+
+Sistema operativo
+.DS_Store
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "moneda": "Bs",
+  "categorias": {
+    "servicios": {
+      "etiqueta": "Servicios",
+      "descripcion": "Servicios recurrentes del hogar: luz, agua, gas, internet y telefonia.",
+      "subcategorias": {
+        "luz": ["luz", "energia", "electrico", "electrica", "factura de luz", "setex"],
+        "agua": ["agua", "sanitario", "agsv", "factura de agua"],
+        "gas": ["gas", "garrafa", "balon"],
+        "internet": ["internet", "fibra", "wifi", "datos", "cable"],
+        "telefonia": ["telefono", "celular", "whatsapp", "entel", "tigo", "vivo"]
+      }
+    },
+    "comida": {
+      "etiqueta": "Comida",
+      "descripcion": "Todo lo que se consume: supermercado, panaderia, restaurantes y delivery.",
+      "subcategorias": {
+        "supermercado": ["supermercado", "super", "mercado", "maxi", "santa isabel", "colomber", "hipermaxi", "despensa", "verduleria", "fruteria", "carniceria"],
+        "panaderia": ["panaderia", "pan", "tortilla", "pasteleria", "panader"],
+        "restaurante": ["restaurante", "almuerzo", "cena", "pizzería", "pizzeria", "burger", "hamburgues", "pollo", "sushi", "churrasco", "salteñeria"],
+        "delivery": ["delivery", "pedido", "domicilio", "rapipago", "pedidosya", "tigo apps"],
+        "cafeteria": ["cafe", "capuchino", "te"]
+      }
+    },
+    "ropa": {
+      "etiqueta": "Ropa",
+      "descripcion": "Vestimenta, calzado y accesorios.",
+      "subcategorias": {
+        "ropa": ["ropa", "polo", "camisa", "camiseta", "pantalon", "jean", "vestido", "falda", "sudadera", "abrigo", "ropa de dormir", "pijama"],
+        "calzado": ["zapateria", "zapatos", "zapatilla", "tenis", "botas", "sandalia"],
+        "accesorios": ["accesorio", "accesorios", "bolso", "mochila", "cinturon", "gorra", "reloj"]
+      }
+    },
+    "otros": {
+      "etiqueta": "Otros",
+      "descripcion": "Todo gasto que no es servicio, comida ni ropa. Es la red de seguridad: si no se reconoce, cae aqui.",
+      "subcategorias": {
+        "transporte": ["taxi", "trufi", "micro", "bus", "bencina", "gasolina", "combustible", "nafta", "estacionamiento", "parking", "moto"],
+        "salud": ["farmacia", "medico", "doctor", "dentista", "analisis", "hospital", "medicamento"],
+        "ocio": ["cine", "teatro", "concierto", "gym", "gimnasio", "videojuego", "steam", "fiesta", "discoteca"],
+        "educacion": ["curso", "universidad", "u", "colegio", "textbook", "material", "biblioteca", "inscripcion"],
+        "hogar": ["plomero", "electricista", "pintor", "mueble", "ferreteria", "limpieza"],
+        "sin_clasificar": []
+      }
+    }
+  }
+}
