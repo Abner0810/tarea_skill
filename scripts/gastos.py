@@ -27,6 +27,7 @@ RUTA_REGLAS_POR_DEFECTO = RAIZ_SKILL / "assets" / "categorias.json"
 CODIGO_OK = 0
 CODIGO_ENTRADAS = 1
 CODIGO_ARCHIVO = 2
+CODIGO_DEPENDENCIA = 3
 MAXIMO_ERRORES_MOSTRADOS = 12
 
 
@@ -37,6 +38,10 @@ class ErrorEntradas(Exception):
 
 
 class ErrorArchivo(Exception):
+    pass
+
+
+class ErrorDependencia(Exception):
     pass
 
 
@@ -281,6 +286,34 @@ def calcular_resumen(gastos):
     return filas, total
 
 
+def calcular_resumen_categoria(gastos):
+    resumen = {}
+    total = 0.0
+    for gasto in gastos:
+        categoria = gasto["categoria"]
+        if categoria not in resumen:
+            resumen[categoria] = {"n": 0, "total": 0.0}
+        resumen[categoria]["n"] += 1
+        resumen[categoria]["total"] += gasto["monto"]
+        total += gasto["monto"]
+
+    filas = [
+        {
+            "categoria": categoria,
+            "n": datos["n"],
+            "total": datos["total"],
+            "porcentaje": (datos["total"] / total * 100) if total else 0.0,
+        }
+        for categoria, datos in resumen.items()
+    ]
+    filas.sort(key=lambda fila: (-fila["total"], fila["categoria"]))
+    return filas, total
+
+
+def seleccionar_revision(gastos):
+    return [gasto for gasto in gastos if gasto["subcategoria"] == SIN_CLASIFICAR]
+
+
 def escribir_csv(filas, total, salida):
     ruta = Path(salida)
     if ruta.parent != Path("."):
@@ -305,6 +338,248 @@ def escribir_csv(filas, total, salida):
         )
 
 
+def escribir_xlsx(gastos, filas, total, salida, reglas, detalle):
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError as error:
+        raise ErrorDependencia(
+            "Para generar un archivo .xlsx instala openpyxl: "
+            "python -m pip install openpyxl"
+        ) from error
+
+    ruta = Path(salida)
+    if ruta.parent != Path("."):
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+
+    moneda = reglas.get("moneda", "Bs")
+    fechas = [gasto["fecha"] for gasto in gastos]
+    color_principal = "1F4E78"
+    color_encabezado = "5B9BD5"
+    color_total = "D9EAF7"
+    color_revisar = "FFF2CC"
+    color_borde = "B4C7E7"
+    borde = Border(
+        left=Side(style="thin", color=color_borde),
+        right=Side(style="thin", color=color_borde),
+        top=Side(style="thin", color=color_borde),
+        bottom=Side(style="thin", color=color_borde),
+    )
+
+    libro = Workbook()
+    libro.remove(libro.active)
+    libro.properties.title = "Control de gastos"
+    libro.properties.subject = "Resumen de gastos clasificados"
+
+    def texto(hoja, fila, columna, valor):
+        celda = hoja.cell(fila, columna)
+        celda.value = "" if valor is None else str(valor)
+        celda.data_type = "s"
+        return celda
+
+    def titulo(hoja, nombre, columnas):
+        hoja.merge_cells(start_row=1, start_column=1, end_row=1, end_column=columnas)
+        celda = hoja.cell(1, 1)
+        celda.value = nombre
+        celda.font = Font(size=16, bold=True, color="FFFFFF")
+        celda.fill = PatternFill("solid", fgColor=color_principal)
+        celda.alignment = Alignment(horizontal="left", vertical="center")
+        hoja.row_dimensions[1].height = 28
+
+    def encabezados(hoja, fila, valores):
+        for columna, valor in enumerate(valores, start=1):
+            celda = hoja.cell(fila, columna, valor)
+            celda.font = Font(bold=True, color="FFFFFF")
+            celda.fill = PatternFill("solid", fgColor=color_encabezado)
+            celda.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            celda.border = borde
+        hoja.row_dimensions[fila].height = 28
+
+    def ajustar(hoja, anchos):
+        for indice, ancho in enumerate(anchos, start=1):
+            hoja.column_dimensions[get_column_letter(indice)].width = ancho
+        hoja.sheet_view.showGridLines = False
+        hoja.sheet_view.zoomScale = 90
+
+    def preparar_tabla(hoja, fila_encabezado, columnas, ultima_fila, anchos):
+        ajustar(hoja, anchos)
+        hoja.freeze_panes = f"A{fila_encabezado + 1}"
+        if ultima_fila >= fila_encabezado:
+            hoja.auto_filter.ref = (
+                f"A{fila_encabezado}:{get_column_letter(columnas)}{ultima_fila}"
+            )
+
+    def marcar_total(hoja, fila, columnas):
+        for columna in range(1, columnas + 1):
+            celda = hoja.cell(fila, columna)
+            celda.font = Font(bold=True, color=color_principal)
+            celda.fill = PatternFill("solid", fgColor=color_total)
+            celda.border = Border(top=Side(style="double", color=color_principal))
+
+    def seccion(hoja, fila, nombre, columnas):
+        hoja.merge_cells(start_row=fila, start_column=1, end_row=fila, end_column=columnas)
+        celda = hoja.cell(fila, 1)
+        celda.value = nombre
+        celda.font = Font(bold=True, size=12, color=color_principal)
+
+    def etiqueta_categoria(categoria):
+        definicion = reglas.get("categorias", {}).get(categoria, {})
+        return definicion.get("etiqueta", categoria)
+
+    def origen(gasto):
+        return "Clasificado automaticamente" if gasto["automatica"] else "Categoria manual"
+
+    def aplicar_formato_monto(celda):
+        celda.number_format = f'#,##0.00 "{moneda}"'
+
+    def aplicar_formato_porcentaje(celda):
+        celda.number_format = "0.0%"
+
+    def aplicar_formato_fecha(celda):
+        celda.number_format = "yyyy-mm-dd"
+
+    hoja = libro.create_sheet("Resumen")
+    titulo(hoja, "CONTROL DE GASTOS", 4)
+    datos_resumen = [
+        (3, "Periodo", f"{min(fechas)} a {max(fechas)}"),
+        (4, "Gastos", len(gastos)),
+        (5, f"Total ({moneda})", total),
+    ]
+    for fila, etiqueta, valor in datos_resumen:
+        texto(hoja, fila, 1, etiqueta).font = Font(bold=True, color=color_principal)
+        celda = hoja.cell(fila, 2, valor)
+        if fila == 5:
+            aplicar_formato_monto(celda)
+    seccion(hoja, 7, "RESUMEN POR CATEGORIA", 4)
+    encabezados(hoja, 8, ["CATEGORIA", "N GASTOS", f"TOTAL ({moneda})", "% DEL TOTAL"])
+    filas_categoria, _ = calcular_resumen_categoria(gastos)
+    for indice, fila in enumerate(filas_categoria, start=9):
+        texto(hoja, indice, 1, etiqueta_categoria(fila["categoria"]))
+        hoja.cell(indice, 2, fila["n"])
+        celda = hoja.cell(indice, 3, fila["total"])
+        aplicar_formato_monto(celda)
+        celda = hoja.cell(indice, 4, fila["porcentaje"] / 100)
+        aplicar_formato_porcentaje(celda)
+    fila_total = 9 + len(filas_categoria)
+    texto(hoja, fila_total, 1, "TOTAL")
+    hoja.cell(fila_total, 2, len(gastos))
+    celda = hoja.cell(fila_total, 3, total)
+    aplicar_formato_monto(celda)
+    celda = hoja.cell(fila_total, 4, 1.0)
+    aplicar_formato_porcentaje(celda)
+    marcar_total(hoja, fila_total, 4)
+    ajustar(hoja, [24, 14, 20, 16])
+    hoja.freeze_panes = "A9"
+    hoja.print_area = f"A1:D{fila_total}"
+
+    hoja = libro.create_sheet("Por subcategoria")
+    titulo(hoja, "POR SUBCATEGORIA", 5)
+    encabezados(
+        hoja,
+        3,
+        ["CATEGORIA", "SUBCATEGORIA", "N GASTOS", f"TOTAL ({moneda})", "% DEL TOTAL"],
+    )
+    for indice, fila in enumerate(filas, start=4):
+        texto(hoja, indice, 1, etiqueta_categoria(fila["categoria"]))
+        texto(hoja, indice, 2, fila["subcategoria"])
+        hoja.cell(indice, 3, fila["n"])
+        celda = hoja.cell(indice, 4, fila["total"])
+        aplicar_formato_monto(celda)
+        celda = hoja.cell(indice, 5, fila["porcentaje"] / 100)
+        aplicar_formato_porcentaje(celda)
+    fila_total = 4 + len(filas)
+    texto(hoja, fila_total, 1, "TOTAL")
+    texto(hoja, fila_total, 2, "")
+    hoja.cell(fila_total, 3, len(gastos))
+    celda = hoja.cell(fila_total, 4, total)
+    aplicar_formato_monto(celda)
+    celda = hoja.cell(fila_total, 5, 1.0)
+    aplicar_formato_porcentaje(celda)
+    marcar_total(hoja, fila_total, 5)
+    preparar_tabla(hoja, 3, 5, fila_total, [20, 22, 14, 20, 16])
+
+    hoja = libro.create_sheet("Por categoria")
+    titulo(hoja, "POR CATEGORIA", 4)
+    encabezados(hoja, 3, ["CATEGORIA", "N GASTOS", f"TOTAL ({moneda})", "% DEL TOTAL"])
+    for indice, fila in enumerate(filas_categoria, start=4):
+        texto(hoja, indice, 1, etiqueta_categoria(fila["categoria"]))
+        hoja.cell(indice, 2, fila["n"])
+        celda = hoja.cell(indice, 3, fila["total"])
+        aplicar_formato_monto(celda)
+        celda = hoja.cell(indice, 4, fila["porcentaje"] / 100)
+        aplicar_formato_porcentaje(celda)
+    fila_total = 4 + len(filas_categoria)
+    texto(hoja, fila_total, 1, "TOTAL")
+    hoja.cell(fila_total, 2, len(gastos))
+    celda = hoja.cell(fila_total, 3, total)
+    aplicar_formato_monto(celda)
+    celda = hoja.cell(fila_total, 4, 1.0)
+    aplicar_formato_porcentaje(celda)
+    marcar_total(hoja, fila_total, 4)
+    preparar_tabla(hoja, 3, 4, fila_total, [24, 14, 20, 16])
+
+    hoja = libro.create_sheet("Revisar")
+    titulo(hoja, "GASTOS PARA REVISAR", 7)
+    encabezados(
+        hoja,
+        3,
+        ["FILA", "FECHA", "DESCRIPCION", f"MONTO ({moneda})", "CATEGORIA", "SUBCATEGORIA", "ORIGEN"],
+    )
+    revisar = seleccionar_revision(gastos)
+    if revisar:
+        for indice, gasto in enumerate(revisar, start=4):
+            hoja.cell(indice, 1, gasto["fila"])
+            celda = hoja.cell(indice, 2, gasto["fecha"])
+            aplicar_formato_fecha(celda)
+            texto(hoja, indice, 3, gasto["descripcion"])
+            celda = hoja.cell(indice, 4, gasto["monto"])
+            aplicar_formato_monto(celda)
+            texto(hoja, indice, 5, etiqueta_categoria(gasto["categoria"]))
+            texto(hoja, indice, 6, gasto["subcategoria"])
+            texto(hoja, indice, 7, origen(gasto))
+            for columna in range(1, 8):
+                hoja.cell(indice, columna).fill = PatternFill("solid", fgColor=color_revisar)
+        ultima_fila = 3 + len(revisar)
+        preparar_tabla(hoja, 3, 7, ultima_fila, [10, 14, 32, 20, 18, 20, 26])
+    else:
+        texto(hoja, 4, 1, "No hay gastos que requieran revision.")
+        ajustar(hoja, [10, 14, 32, 20, 18, 20, 26])
+
+    if detalle:
+        hoja = libro.create_sheet("Detalle")
+        titulo(hoja, "DETALLE DE CLASIFICACION", 8)
+        encabezados(
+            hoja,
+            3,
+            [
+                "FILA",
+                "FECHA",
+                "DESCRIPCION",
+                f"MONTO ({moneda})",
+                "CATEGORIA",
+                "SUBCATEGORIA",
+                "PALABRA CLAVE",
+                "ORIGEN",
+            ],
+        )
+        for indice, gasto in enumerate(gastos, start=4):
+            hoja.cell(indice, 1, gasto["fila"])
+            celda = hoja.cell(indice, 2, gasto["fecha"])
+            aplicar_formato_fecha(celda)
+            texto(hoja, indice, 3, gasto["descripcion"])
+            celda = hoja.cell(indice, 4, gasto["monto"])
+            aplicar_formato_monto(celda)
+            texto(hoja, indice, 5, etiqueta_categoria(gasto["categoria"]))
+            texto(hoja, indice, 6, gasto["subcategoria"])
+            texto(hoja, indice, 7, gasto["palabra_clave"] or "-")
+            texto(hoja, indice, 8, origen(gasto))
+        preparar_tabla(hoja, 3, 8, 3 + len(gastos), [10, 14, 32, 20, 18, 20, 22, 26])
+
+    libro.active = 0
+    libro.save(ruta)
+
+
 def imprimir_consola(gastos, filas, total, reglas, salida, detalle):
     moneda = reglas.get("moneda", "Bs")
     fechas = [gasto["fecha"] for gasto in gastos]
@@ -326,15 +601,17 @@ def imprimir_consola(gastos, filas, total, reglas, salida, detalle):
         )
     print("-" * ancho)
 
-    por_categoria = {}
-    for fila in filas:
-        por_categoria[fila["categoria"]] = por_categoria.get(fila["categoria"], 0.0) + fila["total"]
+    filas_categoria, _ = calcular_resumen_categoria(gastos)
     print()
     print("POR CATEGORIA (tus 4 cajones)")
-    for categoria, monto in sorted(por_categoria.items(), key=lambda par: -par[1]):
-        print(f"  {categoria:<12}{moneda} {monto:>10,.2f}  ({monto / total * 100:>5,.1f}%)")
+    for fila in filas_categoria:
+        porcentaje = f"{fila['porcentaje']:>5,.1f}%"
+        print(
+            f"  {fila['categoria']:<12}{moneda} {fila['total']:>10,.2f}  "
+            f"({porcentaje})"
+        )
 
-    revisar = [gasto for gasto in gastos if gasto["subcategoria"] == SIN_CLASIFICAR]
+    revisar = seleccionar_revision(gastos)
     if revisar:
         print()
         print(f"REVISAR: {len(revisar)} gasto(s) sin regla explicita (quedaron en otros)")
@@ -361,6 +638,10 @@ def imprimir_consola(gastos, filas, total, reglas, salida, detalle):
     print()
 
 
+def es_salida_xlsx(salida):
+    return Path(salida).suffix.lower() == ".xlsx"
+
+
 def ejecutar(entrada, salida, ruta_reglas, detalle):
     if not Path(entrada).exists():
         raise ErrorArchivo(f"No se encontro el archivo de gastos: {entrada}")
@@ -368,7 +649,10 @@ def ejecutar(entrada, salida, ruta_reglas, detalle):
     reglas = cargar_reglas(ruta_reglas)
     gastos = cargar_gastos(entrada, reglas)
     filas, total = calcular_resumen(gastos)
-    escribir_csv(filas, total, salida)
+    if es_salida_xlsx(salida):
+        escribir_xlsx(gastos, filas, total, salida, reglas, detalle)
+    else:
+        escribir_csv(filas, total, salida)
     imprimir_consola(gastos, filas, total, reglas, salida, detalle)
     return len(gastos), total
 
@@ -380,7 +664,10 @@ def main():
     )
     analizador.add_argument("entrada", help="Archivo CSV de gastos.")
     analizador.add_argument(
-        "-o", "--salida", default="resumen.csv", help="CSV de salida (resumen.csv)."
+        "-o",
+        "--salida",
+        default="resumen.csv",
+        help="Archivo de salida: .csv (CSV) o .xlsx (Excel; requiere openpyxl).",
     )
     analizador.add_argument(
         "-r",
@@ -412,6 +699,9 @@ def main():
     except ErrorArchivo as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return CODIGO_ARCHIVO
+    except ErrorDependencia as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return CODIGO_DEPENDENCIA
     return CODIGO_OK
 
 

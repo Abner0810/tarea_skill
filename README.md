@@ -1,7 +1,8 @@
 # control-gastos
 
 Skill que toma un CSV de compras, clasifica cada gasto en **servicios**, **comida**, **ropa** u
-**otros**, y devuelve un resumen con totales, porcentajes y subcategorias.
+**otros**, y devuelve un resumen con totales, porcentajes y subcategorias. Puede generar un CSV
+ligero o un libro Excel `.xlsx` organizado en hojas.
 
 La clasificacion es determinista: sin IA, sin API, sin claves y sin internet. La misma entrada
 produce siempre el mismo resultado, y el usuario puede ver que palabra clave decido cada gasto.
@@ -9,23 +10,35 @@ produce siempre el mismo resultado, y el usuario puede ver que palabra clave dec
 ## Requisitos
 
 - Python 3.10 o superior.
-- Nada mas. Cero dependencias, no hace falta `pip install`.
+- Para salida `.csv`: no hace falta instalar nada.
+- Para salida `.xlsx`: instalar `openpyxl` con el archivo de requisitos:
+
+```bash
+python -m pip install -r assets/requirements-xlsx.txt
+```
+
+En una instalacion de Windows, la ruta absoluta es:
+
+```cmd
+python -m pip install -r "%USERPROFILE%\.agents\skills\control-gastos\assets\requirements-xlsx.txt"
+```
 
 Comprobar version: `python --version`
 
 ## Estructura
 
 ```
-skill-control-gastos/
+control-gastos/
 ├── SKILL.md                              # descripcion y reglas de la skill
 ├── README.md                             # este archivo
 ├── scripts/
 │   ├── gastos.py                         # flujo completo: valida, clasifica, resume
-│   └── demo.py                           # 1 caso exitoso + 4 casos de error
+│   └── demo.py                           # 6 casos base + salida XLSX
 ├── assets/
 │   ├── categorias.json                   # diccionario de palabras clave (se edita a mano)
 │   ├── ejemplo.csv                       # 15 gastos, separador de coma
-│   └── ejemplo-excel.csv                 # los mismos 15, como los exporta Excel en Bolivia
+│   ├── ejemplo-excel.csv                 # los mismos 15, como los exporta Excel en Bolivia
+│   └── requirements-xlsx.txt             # dependencia para generar archivos .xlsx
 └── references/
     ├── REGLAS-CLASIFICACION.md           # por que clasifica asi y como extenderlo
     └── FORMATO-ENTRADA.md                # columnas, formatos y todos los errores
@@ -105,7 +118,21 @@ otros,hogar,1,400.00,12.65
 TOTAL,,15,3162.80,100.00
 ```
 
-### 2. Ver que palabra decidio cada gasto
+### 2. Generar un Excel organizado
+
+Instala la dependencia de Excel y usa una salida con extension `.xlsx`:
+
+```bash
+python -m pip install -r assets/requirements-xlsx.txt
+python scripts/gastos.py assets/ejemplo-excel.csv -o resumen.xlsx -d
+```
+
+El libro contiene las hojas `Resumen`, `Por subcategoria`, `Por categoria`, `Revisar` y, cuando
+se usa `-d`, `Detalle`. Incluye filtros, encabezado destacado, fechas y montos como valores de
+Excel, porcentajes formateados y el gasto sin regla en una hoja separada. Sin `-d`, el libro
+mantiene las hojas de resumen y revision.
+
+### 3. Ver que palabra decidio cada gasto
 
 ```bash
 python scripts/gastos.py assets/ejemplo.csv -d
@@ -119,7 +146,7 @@ fila  12 | Pago al plomero               -> otros/hogar  (por 'plomero')
 fila  16 | Regalo para mi mama           -> otros/sin_clasificar  (por '-')
 ```
 
-### 3. Con tus propios gastos
+### 4. Con tus propios gastos
 
 Copiar `assets/ejemplo.csv`, poner tus filas, y:
 
@@ -127,7 +154,7 @@ Copiar `assets/ejemplo.csv`, poner tus filas, y:
 python scripts/gastos.py mis-gastos.csv -o mi-resumen.csv
 ```
 
-### 4. Con un archivo exportado de Excel
+### 5. Con un archivo exportado de Excel
 
 ```bash
 python scripts/gastos.py assets/ejemplo-excel.csv
@@ -137,7 +164,7 @@ Funciona sin configurar nada. Excel en Bolivia exporta con `;` como separador, `
 cabeceras con tilde (`Descripción`, `Importe`); la skill detecta el formato y tambien acepta
 `Importe` como sinonimo de `monto` y `Concepto` como sinonimo de `descripcion`.
 
-### 5. Entrada invalida
+### 6. Entrada invalida
 
 ```bash
 python scripts/gastos.py datos_malos.csv
@@ -150,15 +177,15 @@ ERROR: no se pudo procesar el archivo.
 Consulta references/FORMATO-ENTRADA.md
 ```
 
-No genera `resumen.csv` a medias. Sale con codigo `1`.
+No genera una salida a medias. Sale con codigo `1`.
 
 ## Opciones
 
 | Opcion | Por defecto | Para que sirve |
 | --- | --- | --- |
-| `-o, --salida` | `resumen.csv` | Cambiar el nombre o la carpeta del CSV de salida |
+| `-o, --salida` | `resumen.csv` | Elegir `.csv` o `.xlsx` y cambiar la ruta de salida |
 | `-r, --reglas` | `assets/categorias.json` | Usar otro diccionario de categorias |
-| `-d, --detalle` | apagado | Mostrar que palabra clave decidio cada gasto |
+| `-d, --detalle` | apagado | Mostrar el detalle en consola y agregarlo al XLSX |
 
 ## Demostracion
 
@@ -166,7 +193,7 @@ No genera `resumen.csv` a medias. Sale con codigo `1`.
 python scripts/demo.py
 ```
 
-Corre 6 casos de punta a punta y termina con `6/6 casos pasan`:
+Corre 7 casos de punta a punta y termina con `7/7 casos pasan`:
 
 | Caso | Que prueba |
 | --- | --- |
@@ -176,6 +203,11 @@ Corre 6 casos de punta a punta y termina con `6/6 casos pasan`:
 | 4 | Acumula dos errores distintos en una sola corrida |
 | 5 | Distingue archivo inexistente de contenido invalido |
 | 6 | Lee el formato real de Excel en Bolivia (`;`, `1.240,80`, tildes) y da el mismo total |
+| 7 | Genera un `.xlsx` con hojas de resumen, revision y detalle |
+
+Si `openpyxl` no esta instalado, el caso 7 se marca `OMITIDO` en vez de `FALLA` porque es una
+dependencia opcional: el demo termina con `6/7 casos pasan, 1 omitido (falta openpyxl)` y con
+codigo de salida `0`.
 
 ## Como extenderla
 
@@ -205,6 +237,12 @@ fecha,descripcion,monto
 **Por que Python y no Bash.** Los ejemplos de la clase usan scripts `.sh`, que en Windows no
 corren sin WSL ni Git Bash. Python viene instalado en la mayoria de las maquinas y es el mismo
 en los tres sistemas, asi que la demo funciona en la presentacion sin condiciones.
+
+**Por que `openpyxl` para Excel.** La salida CSV no necesita dependencias. Para crear un libro
+`.xlsx` real, con estilos, filtros y celdas nativas, la skill usa `openpyxl`. La dependencia esta
+en `assets/requirements-xlsx.txt` y solo se importa cuando la extension de salida es `.xlsx`; si falta,
+el comando indica exactamente que instalar. La version de la skill que usa esta dependencia es
+`3.1.0` o superior.
 
 **Por que un diccionario y no un modelo.** Un modelo puede clasificar "Regalo para mi mama" en
 `ropa` con un 60% de confianza y nadie puede explicar por que. Con reglas, cada decision tiene una

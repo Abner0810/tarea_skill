@@ -2,10 +2,10 @@
 name: control-gastos
 description: Clasifica gastos personales en cuatro categorias (servicios, comida, ropa y otros) a partir de un CSV y genera un resumen mensual con totales, porcentajes y subcategorias. Usa cuando el usuario pida organizar, revisar, resumir o controlar gastos, cuentas, gastos del mes, compras, presupuesto semanal, o cuando tenga un CSV de compras y quiera saber en que se le va el dinero.
 license: MIT
-compatibility: Requiere Python 3.10 o superior. No necesita internet, ni API keys, ni dependencias externas. Funciona en Windows, Linux y macOS.
+compatibility: Requiere Python 3.10 o superior. La salida CSV no necesita dependencias externas; la salida .xlsx requiere openpyxl>=3.1.0. Funciona en Windows, Linux y macOS.
 metadata:
   author: abner-barrenechea
-  version: "1.0"
+  version: "1.1"
   category: productividad-finanzas
 ---
 
@@ -38,6 +38,18 @@ python "C:\Users\Abner B\.agents\skills\control-gastos\scripts\demo.py"
 
 Todas las rutas citadas más abajo en este documento son relativas a la carpeta de la skill.
 Sustitúyelas por la ruta de instalación cuando ejecutes comandos.
+
+## Dependencia para salida XLSX
+
+La salida CSV funciona sin instalar paquetes. Para generar un archivo `.xlsx` real, instala la
+dependencia incluida antes de ejecutar el comando:
+
+```bash
+python -m pip install -r "C:\Users\Abner B\.agents\skills\control-gastos\assets\requirements-xlsx.txt"
+```
+
+La dependencia es `openpyxl>=3.1.0`. Si se solicita `.xlsx` sin tenerla instalada, el script termina
+con codigo `3` e indica el comando de instalación. La salida por defecto sigue siendo CSV.
 
 ## Cuando usar
 
@@ -83,14 +95,14 @@ cualquier cosa que requiera datos que no esten en el archivo de entrada.
 4. **Clasificar**: si la fila trae `categoria`, se respeta. Si no, se busca la palabra clave
    mas larga que coincida; gana la coincidencia mas especifica.
 5. **Agrupar y calcular**: total por categoria y por subcategoria, con porcentaje sobre el total.
-6. **Reportar**: imprime tabla en consola y escribe `resumen.csv`. Los gastos sin regla
-   explicita quedan listados para revision.
+6. **Reportar**: imprime tabla en consola y escribe un CSV o un libro `.xlsx` segun la extension de
+   `-o`. Los gastos sin regla explicita quedan listados para revision.
 
 ## Ejemplos de entrada y salida esperada
 
 | Entrada del usuario | Accion esperada |
 | --- | --- |
-| "Aqui esta mi CSV del mes, clasificalo" | Valida, clasifica solo, imprime tabla y genera `resumen.csv` |
+| "Aqui esta mi CSV del mes, clasificalo" | Valida, clasifica solo, imprime tabla y genera `resumen.csv`; con `-o salida.xlsx` genera un libro organizado |
 | "Muestrame en que me voy la plata" | Corre `gastos.py assets/ejemplo.csv` y destaca la categoria con mayor porcentaje |
 | "Pon esto en ropa, es un abrigo" | Corre con la columna `categoria` completa; no reclasifica lo que el usuario decidio |
 | "Por que el taxi salio en otros?" | Explica la regla y muestra `--detalle` con la palabra clave que decidio |
@@ -114,18 +126,22 @@ cualquier cosa que requiera datos que no esten en el archivo de entrada.
 | `gasolina` vs `gas` | No se confunde: la busqueda usa limites de palabra, no subcadenas |
 | CSV exportado de Excel en Bolivia (`;`, `1.240,80`, `Descripción`) | Se procesa igual que uno con coma, sin configuración |
 | Columna `Importe` en vez de `monto` | Se reconoce por sinonimo y se normaliza |
+| Salida `.xlsx` sin `openpyxl` | Indica el comando de instalacion y termina con codigo 3; CSV no se afecta |
 
 ## Scripts ejecutables
 
 - `scripts/gastos.py` — flujo completo. Uso:
-  `python scripts/gastos.py <entrada.csv> [-o resumen.csv] [-r assets/categorias.json] [-d]`
-  La flag `-d/--detalle` imprime que palabra clave decido cada gasto.
-  Códigos de salida: `0` ok, `1` entradas invalidas, `2` problema de archivo.
-- `scripts/demo.py` — demostracion de extremo a extremo. Corre 1 caso exitoso y 4 casos de
-  error en una sola ejecucion. Uso: `python scripts/demo.py`
+  `python scripts/gastos.py <entrada.csv> [-o resumen.csv|resumen.xlsx] [-r assets/categorias.json] [-d]`
+  La flag `-d/--detalle` imprime que palabra clave decido cada gasto y agrega la hoja `Detalle` a un XLSX.
+  `-o` acepta `.csv` sin dependencias o `.xlsx` con `openpyxl>=3.1.0`.
+  Códigos de salida: `0` ok, `1` entradas invalidas, `2` problema de archivo, `3` dependencia XLSX ausente.
+- `scripts/demo.py` — demostracion de extremo a extremo. Corre 6 casos base y 1 caso de XLSX en una
+  sola ejecucion. Cada caso reporta `PASA`, `FALLA` u `OMITIDO`; el de XLSX queda `OMITIDO` si
+  `openpyxl` no esta instalado, y el demo sigue terminando con codigo `0`. Uso: `python scripts/demo.py`
 
 ## Assets
 
+- `assets/requirements-xlsx.txt` — dependencia `openpyxl` necesaria solo para salidas `.xlsx`.
 - `assets/categorias.json` — diccionario de palabras clave por categoria y subcategoria. Es el
   archivo que se edita para extender o corregir el comportamiento del clasificador.
 - `assets/ejemplo.csv` — 15 gastos de ejemplo (incluye un caso ambiguo y uno sin regla) con

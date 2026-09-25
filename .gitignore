@@ -1,7 +1,10 @@
 Salidas generadas por la skill
-resumen.csv
-mi-resumen.csv
-*-resumen.csv
+resumen*.csv
+mi-resumen*.csv
+*-resumen*.csv
+resumen*.xlsx
+mi-resumen*.xlsx
+*-resumen*.xlsx
 
 Cache de Python
 __pycache__/

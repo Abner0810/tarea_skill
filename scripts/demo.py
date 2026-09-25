@@ -12,6 +12,10 @@ SCRIPT = RAIZ / "scripts" / "gastos.py"
 EJEMPLO = RAIZ / "assets" / "ejemplo.csv"
 EXCEL = RAIZ / "assets" / "ejemplo-excel.csv"
 CODIGO_OK = 0
+CODIGO_DEPENDENCIA = 3
+PASA = "PASA"
+FALLA = "FALLA"
+OMITIDO = "OMITIDO"
 
 CASOS = []
 
@@ -49,14 +53,14 @@ def caso_exito(directorio):
     salida = directorio / "resumen.csv"
     proceso = correr([str(EJEMPLO), "-o", str(salida)])
     if proceso.returncode != CODIGO_OK:
-        return False, falla(proceso, CODIGO_OK, "POR CATEGORIA")
+        return FALLA, falla(proceso, CODIGO_OK, "POR CATEGORIA")
     if not salida.exists():
-        return False, f"no se genero {salida.name}"
+        return FALLA, f"no se genero {salida.name}"
     if "Total   : Bs 3,162.80" not in proceso.stdout:
-        return False, "el total no coincide con la suma esperada (Bs 3,162.80)"
+        return FALLA, "el total no coincide con la suma esperada (Bs 3,162.80)"
     if "Regalo para mi mama" not in proceso.stdout:
-        return False, "no reporto el gasto sin regla explicita"
-    return True, "15 gastos clasificados, total correcto y 1 marcado para revisar"
+        return FALLA, "no reporto el gasto sin regla explicita"
+    return PASA, "15 gastos clasificados, total correcto y 1 marcado para revisar"
 
 
 @registrar("Caso 2 - Entrada invalida: falta la columna 'monto'")
@@ -68,10 +72,10 @@ def caso_cabecera(directorio):
     )
     proceso = correr([str(ruta)])
     if proceso.returncode != 1:
-        return False, falla(proceso, 1, "Faltan columnas requeridas")
+        return FALLA, falla(proceso, 1, "Faltan columnas requeridas")
     if "Faltan columnas requeridas: monto" not in proceso.stderr:
-        return False, "no dijo que columna falta"
-    return True, "rechaza el archivo y lista las columnas requeridas"
+        return FALLA, "no dijo que columna falta"
+    return PASA, "rechaza el archivo y lista las columnas requeridas"
 
 
 @registrar("Caso 3 - Entrada invalida: monto que no es numero")
@@ -83,10 +87,10 @@ def caso_monto(directorio):
     )
     proceso = correr([str(ruta)])
     if proceso.returncode != 1:
-        return False, falla(proceso, 1, "monto invalido")
+        return FALLA, falla(proceso, 1, "monto invalido")
     if "Fila 2: monto invalido 'doce'" not in proceso.stderr:
-        return False, "no indico la fila ni el valor culpable"
-    return True, "detecta la fila 2, la senala y no genera resumen"
+        return FALLA, "no indico la fila ni el valor culpable"
+    return PASA, "detecta la fila 2, la senala y no genera resumen"
 
 
 @registrar("Caso 4 - Entrada invalida: fecha y categoria desconocidas")
@@ -100,19 +104,19 @@ def caso_fecha_y_categoria(directorio):
     )
     proceso = correr([str(ruta)])
     if proceso.returncode != 1:
-        return False, falla(proceso, 1, "fecha invalida")
+        return FALLA, falla(proceso, 1, "fecha invalida")
     errores = proceso.stderr
     if "fecha invalida 'ayer'" not in errores or "categoria invalida 'transporte'" not in errores:
-        return False, "no reporto los dos errores"
-    return True, "acumula los 2 errores de una vez en vez de fallar en el primero"
+        return FALLA, "no reporto los dos errores"
+    return PASA, "acumula los 2 errores de una vez en vez de fallar en el primero"
 
 
 @registrar("Caso 5 - Problema habitual: archivo que no existe")
 def caso_inexistente(directorio):
     proceso = correr([str(directorio / "no_existe.csv")])
     if proceso.returncode != 2:
-        return False, falla(proceso, 2, "No se encontro el archivo")
-    return True, "distingue 'archivo faltante' (codigo 2) de 'contenido invalido' (codigo 1)"
+        return FALLA, falla(proceso, 2, "No se encontro el archivo")
+    return PASA, "distingue 'archivo faltante' (codigo 2) de 'contenido invalido' (codigo 1)"
 
 
 @registrar("Caso 6 - Entrada real de Excel en Bolivia: separador ';' y montos 1.240,80")
@@ -120,12 +124,41 @@ def caso_excel(directorio):
     salida = directorio / "resumen-excel.csv"
     proceso = correr([str(EXCEL), "-o", str(salida)])
     if proceso.returncode != CODIGO_OK:
-        return False, falla(proceso, CODIGO_OK, "POR CATEGORIA")
+        return FALLA, falla(proceso, CODIGO_OK, "POR CATEGORIA")
     if "Total   : Bs 3,162.80" not in proceso.stdout:
-        return False, "el total no coincide con el del CSV estandar (Bs 3,162.80)"
+        return FALLA, "el total no coincide con el del CSV estandar (Bs 3,162.80)"
     if "Regalo para mi mama" not in proceso.stdout:
-        return False, "no reporto el gasto sin regla explicita"
-    return True, "mismos 15 gastos y mismo total, leyendo ';' y cabeceras con tilde"
+        return FALLA, "no reporto el gasto sin regla explicita"
+    return PASA, "mismos 15 gastos y mismo total, leyendo ';' y cabeceras con tilde"
+
+
+@registrar("Caso 7 - Salida XLSX organizada con hojas y detalle")
+def caso_xlsx(directorio):
+    salida = directorio / "resumen.xlsx"
+    proceso = correr([str(EXCEL), "-o", str(salida), "-d"])
+    if proceso.returncode == CODIGO_DEPENDENCIA:
+        return OMITIDO, "falta openpyxl; instala con assets/requirements-xlsx.txt"
+    if proceso.returncode != CODIGO_OK:
+        return FALLA, falla(proceso, CODIGO_OK, "Resumen escrito en")
+    if not salida.exists():
+        return FALLA, f"no se genero {salida.name}"
+
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        return OMITIDO, "falta openpyxl; instala con assets/requirements-xlsx.txt"
+
+    libro = load_workbook(salida, data_only=True)
+    esperadas = {"Resumen", "Por subcategoria", "Por categoria", "Revisar", "Detalle"}
+    if set(libro.sheetnames) != esperadas:
+        return FALLA, f"hojas inesperadas: {libro.sheetnames}"
+    if libro["Resumen"]["B5"].value != 3162.8:
+        return FALLA, "el total del resumen XLSX no coincide"
+    if libro["Revisar"].max_row != 4:
+        return FALLA, "la hoja Revisar no contiene exactamente 1 gasto"
+    if libro["Detalle"].max_row != 18:
+        return FALLA, "la hoja Detalle no contiene los 15 gastos"
+    return PASA, "5 hojas formateadas, total correcto y 1 gasto para revisar"
 
 
 def main():
@@ -145,21 +178,26 @@ def main():
             print("-" * 78)
             print(f"[{numero}] {nombre}")
             try:
-                ok, detalle = funcion(directorio)
+                estado, detalle = funcion(directorio)
             except Exception as error:
-                ok, detalle = False, f"excepcion inesperada: {error}"
-            resultados.append(ok)
-            print(f"    {'PASA' if ok else 'FALLA'} - {detalle}")
+                estado, detalle = FALLA, f"excepcion inesperada: {error}"
+            resultados.append(estado)
+            print(f"    {estado:<8} - {detalle}")
 
     print("-" * 78)
-    todos = all(resultados)
-    print(
-        f"RESULTADO: {sum(resultados)}/{len(resultados)} casos pasan"
-        f"{'' if todos else ' - hay fallas que corregir'}"
-    )
+    pasado = resultados.count(PASA)
+    omitido = resultados.count(OMITIDO)
+    fallado = resultados.count(FALLA)
+    if fallado:
+        linea = f"RESULTADO: {pasado}/{len(resultados)} casos pasan - hay fallas que corregir"
+    elif omitido:
+        linea = f"RESULTADO: {pasado}/{len(resultados)} casos pasan, {omitido} omitido (falta openpyxl)"
+    else:
+        linea = f"RESULTADO: {pasado}/{len(resultados)} casos pasan"
+    print(linea)
     print("=" * 78)
     print()
-    return 0 if todos else 1
+    return 1 if fallado else 0
 
 
 if __name__ == "__main__":

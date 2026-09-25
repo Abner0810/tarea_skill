@@ -109,9 +109,27 @@ Se procesa exactamente igual que el ejemplo minimo de arriba. Esta es la version
 | `0` | Se genero el resumen | Todo correcto |
 | `1` | Entradas invalidas | Columna faltante, columna desconocida, monto no numerico, monto negativo, fecha invalida, categoria fuera de las 4, archivo vacio |
 | `2` | Problema de archivo | El CSV no existe, el diccionario de reglas no existe o esta danado |
+| `3` | Falta una dependencia | Se pidio una salida `.xlsx` y `openpyxl` no esta instalado |
 
-El codigo `1` nunca genera un `resumen.csv` a medias: si hay un error, no hay salida. Asi no se
-toma una decision sobre datos a medio leer.
+El codigo `1` nunca genera una salida a medias: si hay un error, no hay salida. Asi no se toma una
+decision sobre datos a medio leer.
+
+## Salida Excel
+
+La extension de `-o` decide el formato:
+
+- `.csv`: salida tabular compatible con CSV y sin dependencias externas.
+- `.xlsx`: libro Excel organizado en hojas `Resumen`, `Por subcategoria`, `Por categoria`, `Revisar`
+  y `Detalle` cuando se usa `-d`.
+
+Para usar `.xlsx`, instala `openpyxl` con:
+
+```bash
+python -m pip install -r assets/requirements-xlsx.txt
+```
+
+La entrada siempre es un CSV, incluido `assets/ejemplo-excel.csv`; ese archivo representa un export
+de Excel con `;` y montos con coma decimal, no un libro `.xlsx`.
 
 ## Todos los mensajes de error
 
@@ -129,6 +147,7 @@ Fila <n>: monto invalido '<valor>' (debe ser un numero, por ejemplo 45.00 o "45,
 Fila <n>: categoria invalida '<valor>' (opciones: servicios, comida, ropa, otros).
 El archivo tiene cabeceras pero ningun gasto.
 No se encontro el archivo de gastos: <ruta>
+Para generar un archivo .xlsx instala openpyxl: python -m pip install openpyxl
 ```
 
 Los errores se acumulan: un archivo con cinco filas malas muestra las cinco, no solo la primera.
