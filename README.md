@@ -260,11 +260,9 @@ codigo de salida `0`.
 
 Evidencia visual de la demostracion, en `capturas/`.
 
-**Ejecucion de la skill**
 
 ![Ejecucion de la skill](capturas/01-captura.png)
 
-**Resultado**
 
 ![Resultado de la skill](capturas/02-captura.png)
 
