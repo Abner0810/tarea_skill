@@ -39,39 +39,81 @@ control-gastos/
 │   ├── ejemplo.csv                       # 15 gastos, separador de coma
 │   ├── ejemplo-excel.csv                 # los mismos 15, como los exporta Excel en Bolivia
 │   └── requirements-xlsx.txt             # dependencia para generar archivos .xlsx
-└── references/
-    ├── REGLAS-CLASIFICACION.md           # por que clasifica asi y como extenderlo
-    └── FORMATO-ENTRADA.md                # columnas, formatos y todos los errores
+├── references/
+│   ├── REGLAS-CLASIFICACION.md           # por que clasifica asi y como extenderlo
+│   └── FORMATO-ENTRADA.md                # columnas, formatos y todos los errores
+└── capturas/                             # evidencia visual de la demostracion
+    ├── 01-captura.png
+    └── 02-captura.png
 ```
 
 ## Instalacion
 
-La skill se instala copiando la carpeta completa a una ruta que opencode ya escanea. No hace falta
-tocar ninguna configuracion.
+Una skill es una carpeta. Se instala copiandola a la carpeta de skills del agente que uses. No hay
+que registrar nada, no hay plugin que compilar y no hay que tocar ninguna configuracion.
 
-**Windows:**
+### La ruta que lee casi todo el mundo
+
+`~/.agents/skills/` es el estandar abierto de skills para agentes. Lo leen de forma nativa
+**OpenAI Codex, Cursor, Gemini CLI, OpenCode, GitHub Copilot y VS Code**. Si no sabes con que
+agente vas a trabajar, instala ahi y vas a acertar.
+
+| Agente | Ruta global (disponible en todos tus proyectos) | Ruta de proyecto (solo ese repositorio) |
+| --- | --- | --- |
+| OpenAI Codex | `~/.agents/skills/control-gastos/` | `.agents/skills/control-gastos/` |
+| Cursor | `~/.agents/skills/control-gastos/` | `.agents/skills/control-gastos/` |
+| Gemini CLI | `~/.agents/skills/control-gastos/` | `.agents/skills/control-gastos/` |
+| OpenCode | `~/.agents/skills/control-gastos/` | `.agents/skills/control-gastos/` |
+| GitHub Copilot / VS Code | `~/.agents/skills/control-gastos/` | `.github/skills/control-gastos/` o `.agents/skills/control-gastos/` |
+| Claude Code | `~/.claude/skills/control-gastos/` | `.claude/skills/control-gastos/` |
+
+**La unica excepcion es Claude Code**: no lee `.agents/skills`, solo `.claude/skills`. Si usas
+Claude Code, copiala tambien ahi. Codex ademas acepta `~/.codex/skills/` como ruta alternativa.
+
+### Pasos
+
+**Windows (PowerShell o cmd), ruta universal `.agents/skills`:**
 
 ```cmd
+git clone https://github.com/Abner0810/tarea_skill.git
 mkdir "%USERPROFILE%\.agents\skills"
-xcopy /E /I /Y control-gastos "%USERPROFILE%\.agents\skills\control-gastos"
+xcopy /E /I /Y tarea_skill "%USERPROFILE%\.agents\skills\control-gastos"
 ```
 
-**Linux o macOS:**
+**Windows, para Claude Code:**
+
+```cmd
+mkdir "%USERPROFILE%\.claude\skills"
+xcopy /E /I /Y tarea_skill "%USERPROFILE%\.claude\skills\control-gastos"
+```
+
+**Linux o macOS, ruta universal `.agents/skills`:**
 
 ```bash
+git clone https://github.com/Abner0810/tarea_skill.git
 mkdir -p ~/.agents/skills
-cp -R control-gastos ~/.agents/skills/control-gastos
+cp -R tarea_skill ~/.agents/skills/control-gastos
 ```
 
-Despues hay que **reiniciar opencode**: las skills se cargan al arrancar y no se recargan en
+**Linux o macOS, para Claude Code:**
+
+```bash
+mkdir -p ~/.claude/skills
+cp -R tarea_skill ~/.claude/skills/control-gastos
+```
+
+La carpeta de destino se llama `control-gastos` y no `tarea_skill`, porque **el nombre de la
+carpeta es el nombre de la skill**. Si copias sin renombrar, el agente no la va a encontrar.
+
+Despues hay que **reiniciar el agente**: las skills se cargan al arrancar y no se recargan en
 caliente.
 
 ### Sincronizar los cambios
 
-Si se desarrollo en la carpeta de trabajo, hay que volver a copiar antes de probar o presentar:
+Si se desarrollo en el clon, hay que volver a copiar antes de probar o presentar:
 
 ```cmd
-xcopy /E /I /Y control-gastos "%USERPROFILE%\.agents\skills\control-gastos"
+xcopy /E /I /Y tarea_skill "%USERPROFILE%\.agents\skills\control-gastos"
 ```
 
 ### Verificar la instalacion
@@ -80,7 +122,12 @@ xcopy /E /I /Y control-gastos "%USERPROFILE%\.agents\skills\control-gastos"
 python "%USERPROFILE%\.agents\skills\control-gastos\scripts\demo.py"
 ```
 
-Y desde el chat de opencode, con un mensaje normal: `usá la skill control-gastos y clasificame
+Debe terminar con `RESULTADO: 7/7 casos pasan`. Ese mismo script es la demostracion de la
+presentacion, asi que sirve para las dos cosas.
+
+En Linux o macOS la ruta es `~/.agents/skills/control-gastos/scripts/demo.py`.
+
+Y desde el chat del agente, con un mensaje normal: `usa la skill control-gastos y clasificame
 C:\ruta\de\mis-gastos.csv`
 
 ## Como usarla
@@ -208,6 +255,18 @@ Corre 7 casos de punta a punta y termina con `7/7 casos pasan`:
 Si `openpyxl` no esta instalado, el caso 7 se marca `OMITIDO` en vez de `FALLA` porque es una
 dependencia opcional: el demo termina con `6/7 casos pasan, 1 omitido (falta openpyxl)` y con
 codigo de salida `0`.
+
+## Capturas
+
+Evidencia visual de la demostracion, en `capturas/`.
+
+**Ejecucion de la skill**
+
+![Ejecucion de la skill](capturas/01-captura.png)
+
+**Resultado**
+
+![Resultado de la skill](capturas/02-captura.png)
 
 ## Como extenderla
 

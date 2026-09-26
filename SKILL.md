@@ -16,24 +16,25 @@ resumen con totales y porcentajes, mas la lista de gastos que necesita revision 
 
 ## Instalación y rutas
 
-Ruta de instalación en esta máquina:
+La skill se instala copiando esta carpeta a la carpeta de skills del agente. La ruta universal es
+`~/.agents/skills/control-gastos/`, que leen de forma nativa Codex, Cursor, Gemini CLI, OpenCode,
+GitHub Copilot y VS Code. La unica excepcion es Claude Code, que usa `~/.claude/skills/`. La tabla
+completa de rutas por agente esta en el README.
 
-```
-C:\Users\Abner B\.agents\skills\control-gastos\
-```
+En Windows, `~` es `%USERPROFILE%`.
 
 No asumas que el directorio de trabajo actual es la carpeta de la skill. Usa siempre la ruta
 absoluta al ejecutar:
 
 ```bash
-python "C:\Users\Abner B\.agents\skills\control-gastos\scripts\gastos.py" <ruta-del-csv-del-usuario>
+python "~/.agents/skills/control-gastos/scripts/gastos.py" <ruta-del-csv-del-usuario>
 ```
 
 El script resuelve su diccionario de reglas (`assets/categorias.json`) a partir de su propia
 ubicación, así que funciona desde cualquier directorio. Para la demostración:
 
 ```bash
-python "C:\Users\Abner B\.agents\skills\control-gastos\scripts\demo.py"
+python "~/.agents/skills/control-gastos/scripts/demo.py"
 ```
 
 Todas las rutas citadas más abajo en este documento son relativas a la carpeta de la skill.
@@ -45,7 +46,7 @@ La salida CSV funciona sin instalar paquetes. Para generar un archivo `.xlsx` re
 dependencia incluida antes de ejecutar el comando:
 
 ```bash
-python -m pip install -r "C:\Users\Abner B\.agents\skills\control-gastos\assets\requirements-xlsx.txt"
+python -m pip install -r "~/.agents/skills/control-gastos/assets/requirements-xlsx.txt"
 ```
 
 La dependencia es `openpyxl>=3.1.0`. Si se solicita `.xlsx` sin tenerla instalada, el script termina
